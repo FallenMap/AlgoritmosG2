@@ -1,7 +1,9 @@
 from AlgorithmsML.graph.Base import *
 from AlgorithmsML.graph.Layer import *
 
-class ReluLayer( Layer ):
+import math
+
+class TanhLayer( Layer ):
   def __init__(self):
     super().__init__( 0 )
     
@@ -9,6 +11,7 @@ class ReluLayer( Layer ):
     super().onSublayerAdd( subLayer )
     self.dimensions = subLayer.dimensions
     self.num_nodes = subLayer.num_nodes
+    self.prev_results = []
     
     for inode in range( self.num_nodes ):
       node = Node()
@@ -18,10 +21,13 @@ class ReluLayer( Layer ):
       self.nodes.append( node )
       
   def calculate( self ):
+    self.prev_results = []
+
     for inode in range( self.num_nodes ):
       node = self.nodes[ inode ]
       neighbor = self.prevLayer.nodes[ inode ]
-      node.value = max( neighbor.value, 0)
+      node.value = math.tanh( neighbor.value )
+      self.prev_results.append( node.value )
 
   def backpropagate( self, output_gradient, loss ):
 
@@ -29,11 +35,8 @@ class ReluLayer( Layer ):
 
     for igradient in range( len( output_gradient ) ):
       
-      if self.nodes[ igradient ].value > 0:
-        input_gradient.append(
-          output_gradient[ igradient ]
-        )
-      else:
-        input_gradient.append( 0 )
+      input_gradient.append(
+        ( 1 - self.prev_results[ igradient ] ** 2 ) * output_gradient[ igradient ]
+      )
         
     return input_gradient, loss

@@ -1,10 +1,12 @@
 import AlgorithmsML.figures as fg
 
-from AlgorithmsML.graph.ConvolutionLayer2 import *
+from AlgorithmsML.graph.ConvolutionLayer import *
 from AlgorithmsML.graph.InputLayer import *
 from AlgorithmsML.graph.PoolLayer import *
 from AlgorithmsML.graph.ReluLayer import *
 from AlgorithmsML.graph.SoftmaxLayer import *
+from AlgorithmsML.graph.DenseLayer import *
+from AlgorithmsML.graph.Base import *
 
 from random import shuffle
 
@@ -15,23 +17,23 @@ import mnist # Set de numeros 28 x 28 pixeles
 
 class MNISTModel:
 
-  def __init__(self):
+  def __init__(self, lr = LEARNING_RATE ):
     self.images = mnist.train_images()
     self.labels = mnist.train_labels()
     
     self.inputLayer = InputLayer( 28, 28, 1 )
     
-    self.convLayer = ConvolutionalLayer2( [3,3], 8 )
+    self.convLayer = ConvolutionalLayer2( [3,3], 8, None, FILTER_GLOBAL, lr)
     self.inputLayer.addSuperLayer( self.convLayer )
     
     self.maxPooling = PoolLayer( [2,2] ) # MaxPool
     self.convLayer.addSuperLayer( self.maxPooling )
-    
-    self.relu = ReluLayer() # ReLU Layer
-    self.maxPooling.addSuperLayer( self.relu )
-  
-    self.softmax = SoftmaxLayer( 10 ) # Softmax Layer
-    self.maxPooling.addSuperLayer( self.softmax )
+
+    self.dense = DenseLayer(10, lr) # Dense Layer
+    self.maxPooling.addSuperLayer( self.dense )
+
+    self.softmax = SoftmaxLayer( ) # Softmax Layer
+    self.dense.addSuperLayer( self.softmax )
   
   
   def train( self, ntrains, nepochs, savFiles ):
@@ -41,32 +43,45 @@ class MNISTModel:
   
     indexes = [ index for index in range( ntrains ) ]
     
+    loss = []
+    acc = []
+
     for epoch_i in range( nepochs ):
   
       shuffle( indexes )  
       
+      epoch_loss = 0
+      epoch_acc = 0
+
       for i in indexes:
         self.inputLayer.getData( 
           trainImages[i],
           INPUT_MATRIX_ONE_CHANNEL
         )
-        self.inputLayer.passDataRecursive( trainLabels[i] )
-  
-      print( "Ended Epoch ", epoch_i)
+
+        epoch_loss += self.inputLayer.passDataRecursive( trainLabels[i] )[1]
+        epoch_acc += 1 if ( self.orderWinners()[0][0] == trainLabels[i] ) else 0
+
+      acc.append( epoch_acc / ntrains )
+      loss.append( epoch_loss / ntrains )
+
+      print( "Ended Epoch ", epoch_i, epoch_acc / ntrains, epoch_loss / ntrains )
       
     self.convLayer.saveData(
       savFiles[0]
     )
-    self.softmax.saveData(
+    self.dense.saveData(
       savFiles[1]
     )
+
+    return loss, acc
 
   def load( self, loadFiles ):
     self.convLayer.loadData(
       loadFiles[0]
     )
     
-    self.softmax.loadData(
+    self.dense.loadData(
       loadFiles[1]
     )
 
@@ -101,4 +116,4 @@ class MNISTModel:
       INPUT_MATRIX_ONE_CHANNEL
     )
     self.inputLayer.passDataRecursive( )
-    return orderWinners()
+    return self.orderWinners()

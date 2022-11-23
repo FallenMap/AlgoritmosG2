@@ -9,42 +9,49 @@ from AlgorithmsML.graph.DenseLayer import *
 from AlgorithmsML.graph.TanhLayer import *
 from AlgorithmsML.graph.Base import *
 
-from keras.datasets import fashion_mnist # Set de numeros 28 x 28 pixeles
-
-# 0: T-shirt/Top
-# 1: Trouser
-# 2: Pullover
-# 3: Dress
-# 4: Coat
-# 5: Sandals
-# 6: Shirt
-# 7: Sneaker
-# 8: Bag
-# 9: Ankle boots
+from keras.datasets import cifar10 # Set de numeros 28 x 28 pixeles
 
 from random import shuffle
 # from keras.dataset import fashion_mnist # Set de fashion
 
 # (trainX, trainy), (testX, testy) = fashion_mnist.load_data()
 
-class MNISTFashionModel:
+class CIFARModel:
 
   def __init__(self, lr = LEARNING_RATE ):
-    (self.images, self.labels ), (self.testImages, self.testLabels) = fashion_mnist.load_data()
+    (self.images, self.labels ), (self.testImages, self.testLabels) = cifar10.load_data()
     
-    self.inputLayer = InputLayer( 28, 28, 1 )
+    self.inputLayer = InputLayer( 32, 32, 3 ) # 32x32x3
     
-    self.convLayer = ConvolutionalLayer2( [3,3], 8, None, FILTER_GLOBAL, lr)
-    self.inputLayer.addSuperLayer( self.convLayer )
-    
-    self.maxPooling = PoolLayer( [2,2] ) # MaxPool
-    self.convLayer.addSuperLayer( self.maxPooling )
+    self.convLayer = ConvolutionalLayer2( [5,5], 32, None, FILTER_SUMMARIZE, lr, SAME_SIZE_PADDING )
+    self.inputLayer.addSuperLayer( self.convLayer ) # 32x32x32
 
-    self.dense = DenseLayer(10, lr) # Dense Layer
-    self.maxPooling.addSuperLayer( self.dense )
+    self.maxPooling = PoolLayer( [2,2] ) # MaxPool
+    self.convLayer.addSuperLayer( self.maxPooling ) # 16x16x24
+
+    self.convLayer2 = ConvolutionalLayer2( [5,5], 1, None, FILTER_PER_FEATURE, lr, SAME_SIZE_PADDING )
+    self.maxPooling.addSuperLayer( self.convLayer2 ) # 16x16x32
+
+    self.maxPooling2 = PoolLayer( [2,2] ) # MaxPool
+    self.convLayer2.addSuperLayer( self.maxPooling2 ) # 8x8x32
+
+    self.convLayer3 = ConvolutionalLayer2( [5,5], 2, None, FILTER_PER_FEATURE, lr, SAME_SIZE_PADDING )
+    self.maxPooling2.addSuperLayer( self.convLayer3 ) # 8x8x64
+
+    self.maxPooling3 = PoolLayer( [2,2] ) # MaxPool
+    self.convLayer3.addSuperLayer( self.maxPooling3 ) # 4x4x64
+
+    self.dense1 = DenseLayer( 64, lr ) 
+    self.maxPooling3.addSuperLayer( self.dense1 ) # 64
+
+    self.tanh = TanhLayer() # ReLU Layer
+    self.dense1.addSuperLayer( self.tanh ) # 64
+
+    self.dense2 = DenseLayer( 10, lr )
+    self.relu2.addSuperLayer( self.dense2 ) # 10
 
     self.softmax = SoftmaxLayer( ) # Softmax Layer
-    self.dense.addSuperLayer( self.softmax )
+    self.dense2.addSuperLayer( self.softmax ) # 10
   
   
   def train( self, ntrains, nepochs, savFiles ):
@@ -67,22 +74,27 @@ class MNISTFashionModel:
       for i in indexes:
         self.inputLayer.getData( 
           trainImages[i],
-          INPUT_MATRIX_ONE_CHANNEL
+          INPUT_MATRIX_PIXELS
         )
-
-        epoch_loss += self.inputLayer.passDataRecursive( trainLabels[i] ) [1]
-        epoch_acc += 1 if ( self.orderWinners()[0][0] == trainLabels[i] ) else 0
+        epoch_loss += self.inputLayer.passDataRecursive( trainLabels[i][0] )[1]
+        epoch_acc += 1 if ( self.orderWinners()[0][0] == trainLabels[i][0] ) else 0
 
       acc.append( epoch_acc / ntrains )
       loss.append( epoch_loss / ntrains )
 
-      print( "Ended Epoch ", epoch_i, epoch_acc / ntrains, epoch_loss / ntrains )
+      print( "Ended Epoch ", epoch_i)
       
     self.convLayer.saveData(
       savFiles[0]
     )
-    self.dense.saveData(
+    self.convLayer2.saveData(
       savFiles[1]
+    )
+    self.dense1.saveData(
+      savFiles[2]
+    )
+    self.dense2.saveData(
+      savFiles[3]
     )
 
     return loss, acc
@@ -91,9 +103,14 @@ class MNISTFashionModel:
     self.convLayer.loadData(
       loadFiles[0]
     )
-    
-    self.dense.loadData(
+    self.convLayer2.loadData(
       loadFiles[1]
+    )
+    self.dense1.loadData(
+      loadFiles[2]
+    )
+    self.dense2.loadData(
+      loadFiles[3]
     )
 
   def orderWinners( self ):
@@ -116,7 +133,7 @@ class MNISTFashionModel:
     label = self.testLabels[ index]
     self.inputLayer.getData( 
       data,
-      INPUT_MATRIX_ONE_CHANNEL
+      INPUT_MATRIX_PIXELS
     )
     self.inputLayer.passDataRecursive( )
     return label, self.orderWinners()
@@ -124,7 +141,7 @@ class MNISTFashionModel:
   def testByData( self, data ):
     self.inputLayer.getData( 
       data,
-      INPUT_MATRIX_ONE_CHANNEL
+      INPUT_MATRIX_ONE_CHANNEL_PER_FEATURE
     )
     self.inputLayer.passDataRecursive( )
     return self.orderWinners()

@@ -27,27 +27,32 @@ class Layer:
     self.calculate()
 
     input_gradient = None
-    
-    if self.nextLayer is not None:
-      input_gradient = self.nextLayer.passDataRecursive( label_index )
+    loss = None
 
+    if self.nextLayer is not None:
+      upper_data = self.nextLayer.passDataRecursive( label_index )
+      
+      if upper_data is not None:
+        # It is not training
+        input_gradient , loss = upper_data
+        
     if label_index is not None:
       # Data is being trained
       if self.nextLayer is not None:
-        return self.backpropagate( input_gradient )
+        return self.backpropagate( input_gradient, loss )
       else:
-        return self.backpropagate( label_index )
+        return self.backpropagate( label_index , loss )
 
   def calculate(self):
     pass
 
-  def backpropagate(self, output_gradient ):
-    pass
+  def backpropagate(self, output_gradient, loss):
+    return output_gradient, loss
     
   def onSublayerAdd( self, subLayer ):
     self.prevLayer = subLayer
     
-  def toImage( self, RGB_channel = True ):
+  def toImage( self, RGB_channel = True, unnormalize = False ):
     images = []
 
     features = self.dimensions[2]
@@ -70,21 +75,21 @@ class Layer:
               ( ( y * width + x ) * 3 ) * no_rgb_features + ifeature
             ]
 
-            red = node.value * 255
+            red = node.value if not unnormalize else node.value * 255
 
             # Green value
             node = self.nodes [
               ( ( y * width + x ) * 3 + 1) * no_rgb_features + ifeature
             ]
 
-            green = node.value * 255
+            green = node.value if not unnormalize else node.value * 255
 
             # Blue value
             node = self.nodes [
               ( ( y * width + x ) * 3 + 2) * no_rgb_features + ifeature
             ]
 
-            blue = node.value * 255
+            blue = node.value if not unnormalize else node.value * 255
 
             pixels_row.append( (red, green, blue) )
 
